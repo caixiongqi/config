@@ -1,0 +1,87 @@
+乱码解决思路：
+
+tomcat容器本身问题：
+<Connector executor="tomcatThreadPool"
+        port="8080" protocol="HTTP/1.1"
+        connectionTimeout="20000"
+        redirectPort="8443"
+        URIEncoding="GBK" />
+
+在配置文件中加入URIEncoding="GBK" 解决query string的乱码问题，且http header中设置的charset不会重写这个编码
+或者加入useBodyEncodingForURI="true"	解决query String的乱码问题，使用http header中指定charset进行decode
+
+
+可以在web.xml中通过filter指定编码
+<filter>
+    <filter-name>encoding_filter</filter-name>
+    <filter-class >
+      org.springframework.web.filter.CharacterEncodingFilter
+    </filter-class>
+    <init-param>
+      <param-name>encoding</param-name>
+      <param-value>UTF-8</param-value>
+    </init-param>
+</filter>
+<filter-mapping>
+    <filter-name>encoding_filter</filter-name>
+    <url-pattern>/*</url-pattern>
+</filter-mapping>
+
+JSP文件中设置编码 <%@ page contentType="text/html;charset=GBK"%>
+
+如果传后后台的查询参数不是乱码，那就有可能是写入数据库乱码
+
+在jdbc配置文件中的url中后面加入	?useUnicode=true&characterEncoding=GBK
+
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+tomcat配置jndi：
+
+第一步：在tomcat的bin目录加入mysql或者oracle的驱动包
+
+第二步：在tomcat的server.xml或者context.xml中配置
+
+<context>
+       <Resource name="dataSource"
+                        auth="Container"     
+                        type="javax.sql.DataSource"    
+                        maxActive="100"     <!-- 连接池dbcp的相关配置,连接池的最大数据库连接数。设为0表示无限制 -->    
+                        maxIdle="30"     (最大空闲数，数据库连接的最大空闲时间。超过空闲时间，数据库连接将被标记为不可用然后被释放。设为0表示无限制)
+                        maxWait="10000"   (最大建立连接等待时间。如果超过此时间将接到异常。设为-1表示无限制)
+                        username="qxzx"     
+                        password="password"    
+                        driverClassName="oracle.jdbc.driver.OracleDriver"     
+                        url="jdbc:oracle:thin:@192.168.90.107:1521:workflow" />
+</Context>
+
+
+第三步：在web.xml中配置指定的资源名称（不是必须的）
+  <resource-ref>
+      <description>DB Connection</description>
+      <res-ref-name>jdbc/TestDB</res-ref-name>
+      <res-type>javax.sql.DataSource</res-type>
+      <res-auth>Container</res-auth>
+  </resource-ref>
+
+
+第四步：在java代码中使用
+Context cxt=new InitialContext();
+DataSource dataSource=(DataSource) cxt.lookup("java:comp/env/dataSource");  //java:comp/env/后面的名字与Resource的name属性值对应
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+tomcat配置JVM内存：
+
+window：在catalina.bat中加入set JAVA_OPTS=-Xms512m -Xmx1024m   或  set JAVA_OPTS=-Xms64m -Xmx256m -XX:PermSize=128M -XX:MaxNewSize=256m -XX:MaxPermSize=256m
+linux：在catalina.sh中加入set JAVA_OPTS=-Xms512m -Xmx1024m   或   set JAVA_OPTS=-Xms64m -Xmx256m -XX:PermSize=128M -XX:MaxNewSize=256m -XX:MaxPermSize=256m
+
+tomcat启动指定jdk：
+
+在catalina.sh文件和setclasspath.sh文件开头的空白处加上如下两句(指定JDK)：
+export JAVA_HOME=/usr/local/java/jdk1.6.0_18
+export JRE_HOME=/usr/local/java/jdk1.6.0_18/jre
+
+
+
